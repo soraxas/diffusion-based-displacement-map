@@ -15,6 +15,7 @@ from .features_compare.comparison import (
     compare_features_nearby,
 )
 from .features_compare.mapping import Mapping
+from .features_compare.utils import iterate_range
 
 
 def torch_flatten_2d(a):
@@ -217,15 +218,6 @@ def torch_scatter_2d(output, indices, values):
     output.flatten().scatter_(0, idx.flatten(), values.to(dtype=output.dtype).flatten())
 
 
-def iterate_range(size, split=2):
-    assert split <= size
-    for start, stop in zip(range(0, split), range(1, split + 1)):
-        yield (
-            max(0, (size * start) // split),
-            min(size, (size * stop) // split),
-        )
-
-
 def cosine_similarity_matrix_1d(source, target, eps=None):
     eps = eps or (1e-3 if source.dtype == torch.float16 else 1e-8)
     source = source / (torch.norm(source, dim=1, keepdim=True) + eps)
@@ -251,7 +243,7 @@ class FeatureMatcher:
     normalized cross-correlation of features as similarity metric.
     """
 
-    def __init__(self, target=None, sources=None, device="cpu", variety=0.0):
+    def __init__(self, device="cpu", variety=0.0):
         self.device = torch.device(device)
         self.variety = variety
 
@@ -259,11 +251,6 @@ class FeatureMatcher:
         self.sources = None
         self.repro_target: Mapping = None
         self.repro_sources: Mapping = None
-
-        if sources is not None:
-            self.update_sources(sources)
-        if target is not None:
-            self.update_target(target)
 
     @property
     def source_and_target_pair(self) -> FeatureMappingPair:

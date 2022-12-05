@@ -183,6 +183,7 @@ def main():
             config.pop("quiet"), config.pop("verbose")
             result, filenames = api.process_single_command(cmd, **config)
         except KeyboardInterrupt:
+            raise
             print("\nCTRL+C detected, interrupting...")
             break
 

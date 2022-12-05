@@ -2,13 +2,14 @@ import os
 import math
 import itertools
 import collections
-from typing import List, Iterable
+from typing import List, Iterable, Set
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 import tqdm
+from creativeai.image.encoders.base import Encoder
 
 from .critics import GramMatrixCritic, PatchCritic, Critic
 from .solvers import (
@@ -26,13 +27,18 @@ Result = collections.namedtuple(
 
 
 class Application:
-    def __init__(self, device=None, precision=None):
+    def __init__(
+        self, encoder: Encoder, layers: Set[str], mode, device=None, precision="float32"
+    ):
         # Determine which device use based on what's available.
+        self.layers = layers
+        self.mode = mode
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
+        self.encoder = encoder.to(self.device)
         # The floating point format is 32-bit by default, 16-bit supported.
-        self.precision = getattr(torch, precision or "float32")
+        # self.precision = getattr(torch, precision)
 
     def create_pbar(self, msg):
         self.log = tqdm.tqdm(total=100, desc=msg)
@@ -41,7 +47,6 @@ class Application:
         self,
         progress: tqdm.tqdm,
         seed_img: torch.Tensor,
-        encoder,
         critics: Iterable[Critic],
         lr=0.1,
         quality=1,
@@ -63,7 +68,7 @@ class Application:
                     alpha = None
                 image = image[:, 0:3].detach().requires_grad_(True)
 
-                obj: Critic = objective_class(encoder, critics, alpha=alpha)
+                obj: Critic = objective_class(self.encoder, critics, alpha=alpha)
                 opt: Optimiser = solver_class(obj, image, lr=lr)
 
                 for i, loss, converge, lr, retries, scores in self._iterate(
@@ -88,6 +93,7 @@ class Application:
                 progress.close()
                 return
             except RuntimeError as e:
+                raise
                 if "CUDA out of memory." not in str(e):
                     raise
 
@@ -125,9 +131,9 @@ class Application:
 
             previous = min(loss, previous)
 
-    def process_octave(self, result_img, encoder, critics, octave, scale, quality):
+    def process_octave(self, result_img, critics, octave, scale, quality):
         # Each octave we start a new optimization process.
-        result_img = result_img.to(dtype=self.precision)
+        result_img = result_img  # .to(dtype=self.precision)
 
         # The first iteration contains the rescaled image with noise.
         yield Result(result_img, octave, scale, 0, float("+inf"), 1.0, 0)
@@ -136,7 +142,6 @@ class Application:
             self.run(
                 self.log,
                 result_img,
-                encoder=encoder,
                 critics=critics,
                 lr=1.0,
                 quality=quality,

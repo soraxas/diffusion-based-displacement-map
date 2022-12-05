@@ -5,8 +5,10 @@ import soraxas_toolbox
 import torch
 import torch.nn.functional as F
 from creativeai.image.encoders import models
+from creativeai.image.encoders.base import Encoder
 from icecream import ic
 
+from .commands import Command
 from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
 from .app import Application, Result
 from .io import *
@@ -14,7 +16,7 @@ from .io import *
 
 @torch.no_grad()
 def process_iterations(
-    cmd,
+    cmd: Command,
     size: tuple = None,
     octaves: int = None,
     variations: int = 1,
@@ -29,22 +31,19 @@ def process_iterations(
 
     # Configure the default options dynamically, unless overriden.
     factor = math.sqrt((size[0] * size[1]) / (32**2))
-    factor = 100
     octaves = octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
 
     ic(model, factor, octaves)
 
     # Setup the application to use throughout the synthesis.
-    app = Application(device, precision)
 
     # Encoder used by all the critics at every octave.
-    encoder: torch.nn.Module = getattr(models, model)(
+    encoder: Encoder = getattr(models, model)(
         pretrained=True, pool_type=torch.nn.AvgPool2d
     )
-    encoder = encoder.to(device=app.device, dtype=app.precision)
-    app.encoder = encoder
-    app.layers = layers
-    app.mode = mode
+    # encoder = encoder.to(device=app.device, dtype=app.precision)
+
+    app = Application(encoder, layers, mode, device, precision)
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     seed = None
@@ -72,11 +71,11 @@ def process_iterations(
             torch.float32,
             torch.float16,
         ]:
-            if app.precision != dtype:
-                app.precision = dtype
-                app.encoder = app.encoder.to(dtype=dtype)
-                if seed is not None:
-                    seed = seed.to(app.device)
+            # if app.precision != dtype:
+            #     app.precision = dtype
+            #     app.encoder = app.encoder.to(dtype=dtype)
+            #     if seed is not None:
+            #         seed = seed.to(app.device)
 
             try:
                 critics = cmd.prepare_critics(app, scale)
@@ -89,7 +88,6 @@ def process_iterations(
                 )
                 for result in app.process_octave(
                     seed,
-                    app.encoder,
                     critics,
                     octave,
                     scale,
@@ -97,13 +95,16 @@ def process_iterations(
                 ):
                     if throttled_display:
                         soraxas_toolbox.image.display(result.images, pbar=app.log)
-                    yield result
 
+                    yield result
+                # import time
+                # time.sleep(100)
                 seed = result.images
                 del result
                 break
 
             except RuntimeError as e:
+                raise
                 if "CUDA out of memory." not in str(e):
                     raise
 
@@ -111,24 +112,26 @@ def process_iterations(
 
                 gc.collect
                 torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
 
 @torch.no_grad()
-def process_octaves(cmd, **kwargs):
-    """Synthesize a new texture from sources and return a PyTorch tensor at each octave."""
-    for r in process_iterations(cmd, **kwargs):
-        if r.iteration >= 0:
+def process_single_command(cmd, output: str = None, **config: dict):
+    for result in process_iterations(cmd, **config):
+        if result.iteration >= 0:
             continue
 
-        yield Result(
-            r.images, r.octave, r.scale, -r.iteration, r.loss, r.rate, r.retries
+        result = Result(
+            result.images,
+            result.octave,
+            result.scale,
+            -result.iteration,
+            result.loss,
+            result.rate,
+            result.retries,
         )
 
-
-def process_single_command(cmd, output: str = None, **config: dict):
-    for result in process_octaves(cmd, **config):
         result = cmd.finalize_octave(result)
-
         images = save_tensor_to_images(result.images)
         filenames = []
 

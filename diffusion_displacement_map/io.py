@@ -21,8 +21,8 @@ def load_image_from_file(filename: str, mode: str = None) -> PIL.Image:
     return image
 
 
-def load_tensor_from_image(image, device, dtype=torch.float32):
-    return V.to_tensor(image).unsqueeze(0).to(device, dtype)
+def load_tensor_from_image(image):
+    return V.to_tensor(image).unsqueeze(0)
 
 
 def load_image_from_url(url, mode="RGB"):

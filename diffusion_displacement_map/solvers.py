@@ -1,7 +1,10 @@
 import abc
+from typing import List
 
 import torch.optim
 from torch.optim.lr_scheduler import CyclicLR
+
+from diffusion_displacement_map.critics import Critic
 
 
 class Optimiser(abc.ABC):
@@ -63,7 +66,7 @@ class SolverLBFGS(Optimiser):
         """
         # Update the learning-rate dynamically, prepare optimizer.
         self.iteration += 1
-        self.update_lr()
+        # self.update_lr()
 
         # Each iteration we reset the accumulated gradients.
         self.optimizer.zero_grad()
@@ -75,29 +78,29 @@ class SolverLBFGS(Optimiser):
             self.next_result = loss, scores
             return loss
 
-        # Did the optimizer make progress as expected?
-        cur_result = self.image.grad.data.abs().mean()
-        if cur_result <= self.last_result[0] * 8.0:
-            self.next_result = loss, scores
-
-            if cur_result < self.last_result[0] * 2.0:
-                self.last_image = self.image.data.cpu().clone()
-                self.last_result = (cur_result.item(), loss)
-            return loss * 1.0
-
-        # Look-ahead failed, so restore the image from the backup.
-        self.image.data[:] = self.last_image.to(self.image.device)
-        self.image.data[:] += torch.empty_like(self.image.data).normal_(std=1e-3)
-
-        # There was a small regression: dampen the gradients and reduce step size.
-        if cur_result < self.last_result[0] * 24.0:
-            self.image.grad.data.mul_(self.last_result[0] / cur_result)
-            self.update_lr(factor=0.95)
-            self.next_result = loss, scores
-            return loss * 2.0
-
-        self.update_lr(factor=0.8)
-        raise ValueError
+        # # Did the optimizer make progress as expected?
+        # cur_result = self.image.grad.data.abs().mean()
+        # if cur_result <= self.last_result[0] * 8.0:
+        #     self.next_result = loss, scores
+        #
+        #     if cur_result < self.last_result[0] * 2.0:
+        #         self.last_image = self.image.data.cpu().clone()
+        #         self.last_result = (cur_result.item(), loss)
+        #     return loss * 1.0
+        #
+        # # Look-ahead failed, so restore the image from the backup.
+        # self.image.data[:] = self.last_image.to(self.image.device)
+        # self.image.data[:] += torch.empty_like(self.image.data).normal_(std=1e-3)
+        #
+        # # There was a small regression: dampen the gradients and reduce step size.
+        # if cur_result < self.last_result[0] * 24.0:
+        #     self.image.grad.data.mul_(self.last_result[0] / cur_result)
+        #     self.update_lr(factor=0.95)
+        #     self.next_result = loss, scores
+        #     return loss * 2.0
+        #
+        # self.update_lr(factor=0.8)
+        # raise ValueError
 
     def step(self):
         """Perform one iteration of the optimization process.  This function will catch
@@ -109,7 +112,9 @@ class SolverLBFGS(Optimiser):
                 self.optimizer.step(self.call_objective)
                 self.scheduler.step()
                 break
-            except ValueError:
+            except ValueError as e:
+                print(e)
+                # raise
                 # To restart the optimization, we create a new instance from same image.
                 self.reset_optimizer()
                 self.retries += 1
@@ -156,13 +161,15 @@ class SolverSGD(Optimiser):
 
 
 class Objective(abc.ABC):
-    def __init__(self, encoder, critics, alpha=None):
+    def __init__(
+        self, encoder: torch.nn.Module, critics: List[Critic], alpha: float = None
+    ):
         self.encoder = encoder
         self.critics = critics
-        self.alpha = alpha
+        self.alpha_channel = alpha
 
     @abc.abstractmethod
-    def __call__(self, image):
+    def __call__(self, image: torch.Tensor):
         ...
 
 
@@ -180,29 +187,31 @@ class MultiCriticObjective(Objective):
         computes the gradients, and returns the loss.
         """
 
-        # Extract features from image.
-        layers = [c.get_layers() for c in self.critics]
-        feats = dict(self.encoder.extract(image, layers))
+        # with torch.autocast('cuda'):
+        if 1:
 
-        scores = []
+            # Extract features from image.
+            layers = [c.get_layers() for c in self.critics]
+            feats = dict(self.encoder.extract(image, layers))
 
-        # Apply all the critics one by one.
-        for critic in self.critics:
-            critic.on_start()
-            total = 0.0
-            for loss in critic.evaluate(feats):
-                total += loss
-            scores.append(total)
+            scores = []
 
-        # Calculate the final loss and compute the gradients.
-        loss = (sum(scores) / len(scores)).mean()
+            # Apply all the critics one by one.
+            # print(len(layers), len(self.critics))
+            for critic in self.critics:
+                critic.to(list(feats.values())[0])
+                scores.append(sum(critic.evaluate(feats)))
+
+            # Calculate the final loss and compute the gradients.
+            loss = (sum(scores) / len(scores)).mean()
+
         loss.backward()
 
-        for critic in self.critics:
-            critic.on_finish()
+        if self.alpha_channel is not None:
+            image.grad.data.mul_(self.alpha_channel)
 
-        if self.alpha is not None:
-            image.grad.data.mul_(self.alpha)
+        # from icecream import ic
+        # image.grad.data[:, :, :image.shape[2] // 2, :image.shape[3] // 2] *= .0
 
         return loss.item(), scores
 
@@ -214,7 +223,6 @@ class SequentialCriticObjective(Objective):
         # Apply all the critics one by one, keep track of results.
         scores = []
         for critic in self.critics:
-            critic.on_start()
 
             # Extract minimal necessary features from image.
             origin_feats = dict(
@@ -233,7 +241,6 @@ class SequentialCriticObjective(Objective):
                 del loss
 
             scores.append(total)
-            critic.on_finish()
 
             # Backpropagate from those features.
             tensors, grads = [], []
@@ -251,7 +258,7 @@ class SequentialCriticObjective(Objective):
             del origin_feats
             del detach_feats
 
-        if self.alpha is not None:
-            image.grad.data.mul_(self.alpha)
+        if self.alpha_channel is not None:
+            image.grad.data.mul_(self.alpha_channel)
 
         return sum(scores) / len(scores), scores

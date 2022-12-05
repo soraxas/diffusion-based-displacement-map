@@ -2,7 +2,7 @@ import torch
 
 
 def iterate_range(size, split=2):
-    assert split <= size
+    assert split <= size, f"{size}, {split}"
     for start, stop in zip(range(0, split), range(1, split + 1)):
         yield (
             max(0, (size * start) // split),

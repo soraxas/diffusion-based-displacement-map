@@ -113,7 +113,10 @@ def compare_features_identity(
     inputs: FeatureMappingPair,
     split: int,
 ):
+    # from icecream import ic
+    # ic(inputs.feat1.shape, inputs.feat2.shape)
     for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+        # ic(t1, t2)
         assert t2 >= t1
 
         indices = inputs.feat1_repro.indices[:, :, t1:t2]

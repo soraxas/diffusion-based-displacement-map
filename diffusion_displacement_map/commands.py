@@ -29,9 +29,8 @@ def create_default_critics(mode: str, layers=None):
 
 
 def prepare_default_critics(
-    app, scale: float, img: torch.Tensor, critics: List[Critic]
+    app: Application, scale: float, img: torch.Tensor, critics: List[Critic]
 ):
-
     ic(scale)
 
     interpolated_img = F.interpolate(
@@ -39,10 +38,12 @@ def prepare_default_critics(
         scale_factor=1.0 / scale,
         mode="area",
         recompute_scale_factor=False,
-    ).to(device=app.device, dtype=app.precision)
+    )  # .to(device=app.device, dtype=app.precision)
 
     layers = [c.get_layers() for c in critics]
-    feats = dict(app.encoder.extract(interpolated_img, layers))
+    feats = dict(
+        app.encoder.extract(interpolated_img.to(next(app.encoder.parameters())), layers)
+    )
 
     # ic(feats)
     ic([[k, v.shape] for k, v in feats.items()])
@@ -56,8 +57,15 @@ def prepare_default_critics(
 
 
 class Command:
-    def prepare_critics(self, app, scale):
-        raise NotImplementedError
+    source: torch.Tensor
+    _default_critics_mode: str
+
+    def prepare_critics(self, app: Application, scale: float):
+        critics = create_default_critics(
+            app.mode or self._default_critics_mode, app.layers
+        )
+        prepare_default_critics(app, scale, self.source, critics)
+        return [critics]
 
     def prepare_seed_tensor(self, size, previous=None):
         raise NotImplementedError
@@ -93,41 +101,40 @@ def random_normal(size, mean: torch.Tensor, std: float = 0.1):
 
 
 class Remix(Command):
+    _default_critics_mode: str = "patch"
+
     def __init__(self, source):
-        self.source = load_tensor_from_image(source, device="cpu")
-
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
-
-        # from texturize import io
-        # source = load_tensor_from_image(io.load_image_from_file("/home/tin/research/one-shot-synthesis/datasets/displacement_maps/image/RockD.png").convert('L'), device="cpu")
-        prepare_default_critics(app, scale, self.source, critics)
-        # prepare_default_critics(app, scale, self.source, critics)
-        return [critics]
+        self.source = load_tensor_from_image(source)
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
+            # return self.source
             b, _, h, w = size
-            mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
+            # h = 4000
+            # w = 4000
+            mean = self.source.mean(dim=(2, 3), keepdim=True)  # .to(device=app.device)
 
-            result = torch.empty((b, 1, h, w), device=app.device, dtype=torch.float32)
+            result = torch.empty(
+                (b, 1, h, w)
+                # , device=app.device, dtype=torch.float32
+            )
+            # ic(self.source.shape, result.shape)
+            # exit()
             return (
-                (result.normal_(std=0.1) + mean).clamp(0.0, 1.0).to(dtype=app.precision)
+                (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
+                # .to(dtype=app.precision)
             )
 
         return upscale(previous, size=size[2:])
 
 
 class Enhance(Command):
+    _default_critics_mode: str = "gram"
+
     def __init__(self, target, source, zoom=1):
         self.octaves = int(math.log(zoom, 2) + 1.0)
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target, device="cpu")
-
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "gram", app.layers)
-        prepare_default_critics(app, scale, self.source, critics)
-        return [critics]
+        self.source = load_tensor_from_image(source)
+        self.target = load_tensor_from_image(target)
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is not None:
@@ -138,15 +145,12 @@ class Enhance(Command):
 
 
 class Remake(Command):
-    def __init__(self, target, source, weights=[1.0]):
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target, device="cpu")
-        self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
+    _default_critics_mode: str = "gram"
 
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "gram", app.layers)
-        prepare_default_critics(app, scale, self.source, critics)
-        return [critics]
+    def __init__(self, target, source, weights=[1.0]):
+        self.source = load_tensor_from_image(source)
+        self.target = load_tensor_from_image(target)
+        self.weights = torch.tensor(weights, dtype=torch.float32).view(-1, 1, 1, 1)
 
     def prepare_seed_tensor(self, app, size, previous=None):
         seed = upscale(self.target.to(device=app.device), size=size[2:])
@@ -161,16 +165,12 @@ class Remake(Command):
 
 
 class Repair(Command):
+    _default_critics_mode: str = "patch"
+
     def __init__(self, target, source):
         assert target.mode == "RGBA"
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target.convert("RGBA"), device="cpu")
-
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
-        # source = renormalize(self.source, self.target[:, 0:3])
-        prepare_default_critics(app, scale, self.source, critics)
-        return [critics]
+        self.source = load_tensor_from_image(source)
+        self.target = load_tensor_from_image(target.convert("RGBA"))
 
     def prepare_seed_tensor(self, app, size, previous=None):
         target = downscale(self.target.to(device=app.device), size=size[2:])
@@ -191,15 +191,12 @@ class Repair(Command):
 
 
 class Expand(Command):
+    _default_critics_mode: str = "patch"
+
     def __init__(self, target, source, factor=None):
         self.factor = factor or (1.0, 1.0)
-        self.source = load_tensor_from_image(source, device="cpu")
-        self.target = load_tensor_from_image(target, device="cpu")
-
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
-        prepare_default_critics(app, scale, self.source, critics)
-        return [critics]
+        self.source = load_tensor_from_image(source)
+        self.target = load_tensor_from_image(target)
 
     def prepare_seed_tensor(self, app, size, previous=None):
         target_size = (int(size[2] / self.factor[0]), int(size[3] / self.factor[1]))
@@ -236,11 +233,15 @@ class Expand(Command):
 
 
 class Mashup(Command):
-    def __init__(self, sources):
-        self.sources = [load_tensor_from_image(s, device="cpu") for s in sources]
+    _default_critics_mode: str = "patch"
 
-    def prepare_critics(self, app, scale):
-        critics = create_default_critics(app.mode or "patch", app.layers)
+    def __init__(self, sources):
+        self.sources = [load_tensor_from_image(s) for s in sources]
+
+    def prepare_critics(self, app: Application, scale: float):
+        critics = create_default_critics(
+            app.mode or self._default_critics_mode, app.layers
+        )
         all_layers = [c.get_layers() for c in critics]
         sources = [
             F.interpolate(
