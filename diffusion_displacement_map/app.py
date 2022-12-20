@@ -84,7 +84,12 @@ class Application:
                         loss=loss,
                         iter=i,
                         # coverage=p,
-                        score=np.array([s.item() for s in scores]),
+                        score=np.array(
+                            [
+                                s.item() if isinstance(s, torch.Tensor) else s
+                                for s in scores
+                            ]
+                        ),
                     )
                     progress.update(int(p) - progress.n)
 
