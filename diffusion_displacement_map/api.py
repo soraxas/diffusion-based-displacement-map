@@ -8,42 +8,47 @@ from creativeai.image.encoders import models
 from creativeai.image.encoders.base import Encoder
 from icecream import ic
 
+from .arg import Args
 from .commands import Command
 from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
 from .app import Application, Result
 from .io import *
+from .seamless_modules import WraparoundVGG11
 
 
 @torch.no_grad()
 def process_iterations(
     cmd: Command,
-    size: tuple = None,
-    octaves: int = None,
-    variations: int = 1,
-    quality: float = 2,
-    model: str = "VGG11",
-    layers: str = None,
-    mode: str = None,
-    device: str = None,
-    precision: str = None,
+    args: Args,
 ):
     """Synthesize a new texture and return a PyTorch tensor at each iteration."""
 
     # Configure the default options dynamically, unless overriden.
-    factor = math.sqrt((size[0] * size[1]) / (32**2))
-    octaves = octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
+    factor = math.sqrt((args.output_size[0] * args.output_size[1]) / (32**2))
+    octaves = args.octaves or getattr(cmd, "octaves", int(math.log(factor, 2) + 1.0))
 
-    ic(model, factor, octaves)
+    ic(args.model, factor, octaves)
 
     # Setup the application to use throughout the synthesis.
 
     # Encoder used by all the critics at every octave.
-    encoder: Encoder = getattr(models, model)(
+    encoder: Encoder = getattr(models, args.model)(
         pretrained=True, pool_type=torch.nn.AvgPool2d
     )
+    encoder: Encoder = WraparoundVGG11(
+        pretrained=True,
+        # input_type='L'
+    )
+
     # encoder = encoder.to(device=app.device, dtype=app.precision)
 
-    app = Application(encoder, layers, mode, device, precision)
+    app = Application(
+        encoder,
+        layers=args.layers,
+        mode=args.mode,
+        device=args.device,
+        precision=args.precision,
+    )
 
     # Coarse-to-fine rendering, number of octaves specified by user.
     seed = None
@@ -58,7 +63,12 @@ def process_iterations(
 
         # app.progress = app.log.create_progress_bar(100)
 
-        result_size = (variations, 3, size[1] // scale, size[0] // scale)
+        result_size = (
+            args.variations,
+            3 if args.img_mode == "RGB" else 1,
+            args.output_size[1] // scale,
+            args.output_size[0] // scale,
+        )
         # app.log.debug("<- seed:", tuple(result_size[2:]))
 
         ic(result_size)
@@ -71,11 +81,11 @@ def process_iterations(
             torch.float32,
             torch.float16,
         ]:
-            # if app.precision != dtype:
-            #     app.precision = dtype
-            #     app.encoder = app.encoder.to(dtype=dtype)
-            #     if seed is not None:
-            #         seed = seed.to(app.device)
+            if app.precision != dtype:
+                app.precision = dtype
+                app.encoder = app.encoder.to(dtype=dtype)
+                if seed is not None:
+                    seed = seed.to(app.device)
 
             try:
                 critics = cmd.prepare_critics(app, scale)
@@ -91,8 +101,17 @@ def process_iterations(
                     critics,
                     octave,
                     scale,
-                    quality=quality,
+                    quality=args.quality,
                 ):
+                    if args.should_stop():
+                        raise StopIteration()
+                    args.report(
+                        image=result.images,
+                        octave=octave,
+                        total_octave=len(progressive_scales),
+                        n=app.log.n,
+                        total_n=app.log.total,
+                    )
                     if throttled_display:
                         soraxas_toolbox.image.display(result.images, pbar=app.log)
 
@@ -116,8 +135,8 @@ def process_iterations(
 
 
 @torch.no_grad()
-def process_single_command(cmd, output: str = None, **config: dict):
-    for result in process_iterations(cmd, **config):
+def process_single_command(cmd: Command, args: Args):
+    for result in process_iterations(cmd, args):
         if result.iteration >= 0:
             continue
 
@@ -135,18 +154,21 @@ def process_single_command(cmd, output: str = None, **config: dict):
         images = save_tensor_to_images(result.images)
         filenames = []
 
+        assert len(images) > 0
         for i, image in enumerate(images):
             # Save the files for each octave to disk.
-            filename = output.format(
+            filename = args.output.format(
                 octave=result.octave,
                 variation=f"_{i}" if len(images) > 1 else "",
                 command=cmd.__class__.__name__.lower(),
             )
 
             soraxas_toolbox.image.display(image)
-            soraxas_toolbox.image.display(image.resize(size=config["size"], resample=0))
+            soraxas_toolbox.image.display(
+                image.resize(size=args.output_size, resample=0)
+            )
 
-            image.resize(size=config["size"], resample=0).save(
+            image.resize(size=args.output_size, resample=0).save(
                 filename, lossless=True, compress=6
             )
 

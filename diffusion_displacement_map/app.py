@@ -37,8 +37,9 @@ class Application:
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
         self.encoder = encoder.to(self.device)
+
         # The floating point format is 32-bit by default, 16-bit supported.
-        # self.precision = getattr(torch, precision)
+        self.precision = getattr(torch, precision)
 
     def create_pbar(self, msg):
         self.log = tqdm.tqdm(total=100, desc=msg)
@@ -52,7 +53,10 @@ class Application:
         quality=1,
     ):
         for objective_class, solver_class in itertools.product(
-            [MultiCriticObjective, SequentialCriticObjective],
+            [
+                MultiCriticObjective,
+                SequentialCriticObjective,
+            ],
             [SolverLBFGS, SolverSGD],
             # [SolverSGD],
         ):
@@ -62,11 +66,13 @@ class Application:
             try:
                 critics = list(itertools.chain.from_iterable(critics))
                 image = seed_img.to(self.device)
+                alpha = None
+                # contains alpha channel
                 if image.shape[1] in (2, 4):
                     alpha = image[:, -1].unsqueeze(-1)
-                else:
-                    alpha = None
                 image = image[:, 0:3].detach().requires_grad_(True)
+
+                _ori_image = image.detach().clone()
 
                 obj: Critic = objective_class(self.encoder, critics, alpha=alpha)
                 opt: Optimiser = solver_class(obj, image, lr=lr)
@@ -74,8 +80,31 @@ class Application:
                 for i, loss, converge, lr, retries, scores in self._iterate(
                     opt, quality=quality
                 ):
+
+                    # # only update the requested region, if we are re-painting part of the image.
+                    # _x = int(0.25 * image.shape[2])
+                    # _y = int(0.25 * image.shape[3])
+
+                    # _ori_image = load_tensor_from_file("/home/tin/Downloads/arseniy-senchi-smirnov-rocktexture-portfolio.jpg", mode='L')
+
+                    # _ori_image = F.interpolate(_ori_image, size=image.shape[2:], mode="bicubic", align_corners=False).clamp(
+                    #     0.0, 1.0
+                    # )
+                    # _ori_image = _ori_image.to(image)
+
+                    # _ori_image = torch.randn_like(_ori_image) * .01
+
+                    # mask = torch.zeros_like(_ori_image, dtype=bool)
+                    # mask[:] = False
+                    # mask[:, :, _x:3*_x, :] = True
+                    # print(_x, 3*_x, image.shape)
+                    # image[~mask] += _ori_image[~mask]
+
                     # Constrain the image to the valid color range.
                     image.data.clamp_(0.0, 1.0)
+
+                    # print(image.shape)
+                    # exit()
 
                     # Update the progress bar with the result!
                     p = min(max(converge * 100.0, 0.0), 100.0)

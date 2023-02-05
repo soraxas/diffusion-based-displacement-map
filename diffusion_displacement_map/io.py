@@ -9,9 +9,9 @@ import torch
 import torchvision.transforms.functional as V
 
 
-def load_tensor_from_file(filename, device, mode=None) -> torch.Tensor:
+def load_tensor_from_file(filename, mode=None) -> torch.Tensor:
     image = load_image_from_file(filename, mode)
-    return load_tensor_from_image(image, device)
+    return load_tensor_from_image(image)
 
 
 def load_image_from_file(filename: str, mode: str = None) -> PIL.Image:

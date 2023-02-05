@@ -38,12 +38,17 @@ def prepare_default_critics(
         scale_factor=1.0 / scale,
         mode="area",
         recompute_scale_factor=False,
-    )  # .to(device=app.device, dtype=app.precision)
+    )  # .to(device=app.device#, dtype=app.precision)
 
     layers = [c.get_layers() for c in critics]
+
+    from .seamless_modules import padding_context_circular
+
+    padding_context_circular.set("reflect")
     feats = dict(
         app.encoder.extract(interpolated_img.to(next(app.encoder.parameters())), layers)
     )
+    padding_context_circular.set("circular")
 
     # ic(feats)
     ic([[k, v.shape] for k, v in feats.items()])
@@ -67,7 +72,7 @@ class Command:
         prepare_default_critics(app, scale, self.source, critics)
         return [critics]
 
-    def prepare_seed_tensor(self, size, previous=None):
+    def prepare_seed_tensor(self, app, size, previous=None):
         raise NotImplementedError
 
     def finalize_octave(self, result):
@@ -108,21 +113,24 @@ class Remix(Command):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
+
             # return self.source
-            b, _, h, w = size
+            b, c, h, w = size
             # h = 4000
             # w = 4000
             mean = self.source.mean(dim=(2, 3), keepdim=True)  # .to(device=app.device)
 
             result = torch.empty(
-                (b, 1, h, w)
+                (b, c, h, w)
                 # , device=app.device, dtype=torch.float32
             )
             # ic(self.source.shape, result.shape)
             # exit()
+            # result[:, :, :, :] = F.interpolate(self.source, (h, w))
+            # return result
             return (
                 (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
-                # .to(dtype=app.precision)
+                # #.to(dtype=app.precision)
             )
 
         return upscale(previous, size=size[2:])
@@ -141,7 +149,7 @@ class Enhance(Command):
             return upscale(previous, size=size[2:])
 
         seed = downscale(self.target.to(device=app.device), size=size[2:])
-        return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
+        return renormalize(seed, self.source.to(app.device))  # .to(dtype=app.precision)
 
 
 class Remake(Command):
@@ -154,7 +162,7 @@ class Remake(Command):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         seed = upscale(self.target.to(device=app.device), size=size[2:])
-        return renormalize(seed, self.source.to(app.device)).to(dtype=app.precision)
+        return renormalize(seed, self.source.to(app.device))  # .to(dtype=app.precision)
 
     def finalize_octave(self, result):
         device = result.images.device
@@ -177,7 +185,7 @@ class Repair(Command):
         if previous is None:
             mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
             current = random_normal(size, mean).to(
-                device=app.device, dtype=app.precision
+                device=app.device  # , dtype=app.precision
             )
         else:
             current = upscale(previous, size=size[2:])
@@ -205,7 +213,7 @@ class Expand(Command):
         if previous is None:
             mean = self.source.mean(dim=(2, 3), keepdim=True).to(device=app.device)
             current = random_normal(size, mean).to(
-                device=app.device, dtype=app.precision
+                device=app.device  # , dtype=app.precision
             )
         else:
             current = upscale(previous, size=size[2:])
@@ -249,7 +257,9 @@ class Mashup(Command):
                 scale_factor=1.0 / scale,
                 mode="area",
                 recompute_scale_factor=False,
-            ).to(device=app.device, dtype=app.precision)
+            ).to(
+                device=app.device  # , dtype=app.precision
+            )
             for img in self.sources
         ]
 
@@ -267,8 +277,8 @@ class Mashup(Command):
         if previous is None:
             means = [torch.mean(s, dim=(0, 2, 3), keepdim=True) for s in self.sources]
             mean = (sum(means) / len(means)).to(app.device)
-            result = random_normal(size, mean).to(dtype=app.precision)
-            return result.to(device=app.device, dtype=app.precision)
+            result = random_normal(size, mean)  # .to(dtype=app.precision)
+            return result.to(device=app.device)  # , dtype=app.precision
 
         return F.interpolate(
             previous, size=size[2:], mode="bicubic", align_corners=False

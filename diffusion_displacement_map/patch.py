@@ -21,8 +21,9 @@ class PatchBuilder:
         padded = F.pad(
             array,
             pad=(abs(self.min), self.max, abs(self.min), self.max),
-            mode="constant",
-            value=0.0,
+            # mode="constant",
+            # value=0.0,
+            mode="circular",
         )
         h, w = (
             padded.shape[2] - self.patch_size + 1,

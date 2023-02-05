@@ -40,9 +40,15 @@ Options:
     --verbose               Display more information on stdout.
     -h, --help              Show this message.
 """
+import argparse
+from typing import Tuple, Type, Optional, List
+
 import soraxas_toolbox.image
-from icecream import ic
+import click
+from tap import Tap
 from soraxas_toolbox.torch import TorchNetworkPrinter
+
+from diffusion_displacement_map.arg import Args
 
 p = TorchNetworkPrinter(
     # auto_cleanup=False
@@ -127,20 +133,23 @@ def main():
 
         # Load the images necessary.
         img_mode = "RGB"
-        img_mode = "L"
+        # img_mode = "L"
         source_img = io.load_image_from_file(filename, mode=img_mode)
+        target_img = io.load_image_from_file(target, mode=img_mode) if target else None
         factor = 0.3
         # factor = 1
         if factor != 1:
             new_size = tuple(int(s * factor) for s in source_img.size)
             # new_size = 512,512
-            ic(source_img.size, new_size)
-            soraxas_toolbox.image.display(source_img)
+            # ic(source_img.size, new_size)
 
             source_img = source_img.resize(new_size)
             soraxas_toolbox.image.display(source_img)
 
-        target_img = io.load_image_from_file(target, mode=img_mode) if target else None
+            if target_img:
+                target_img = target_img.resize(new_size)
+                soraxas_toolbox.image.display(target_img)
+
         # config['size'] = 5120,5120
 
         # Setup the command specified by user.
@@ -188,5 +197,73 @@ def main():
             break
 
 
-if __name__ == "__main__":
-    main()
+def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command, Args]:
+    args = Args().parse_args(input_args)
+
+    # If there's a random seed, use the same for all images.
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed(args.seed)
+
+    # Load the images necessary.
+    source_img = io.load_image_from_file(args.filename, mode=args.img_mode)
+    target_img = (
+        io.load_image_from_file(args.target, mode=args.img_mode)
+        if args.target
+        else None
+    )
+
+    if args.resize_factor != 1:
+        new_size = tuple(int(s * args.resize_factor) for s in source_img.size)
+        print(f"> resizing source from {source_img.size} to {new_size}")
+
+        source_img = source_img.resize(new_size)
+        soraxas_toolbox.image.display(source_img)
+
+        if target_img:
+            target_img = target_img.resize(new_size)
+            soraxas_toolbox.image.display(target_img)
+
+    # Setup the command specified by user.
+    if args.command == "remix":
+        cmd = commands.Remix(source_img)
+    elif args.command == "enhance":
+        cmd = commands.Enhance(target_img, source_img, zoom=zoom)
+        config["octaves"] = cmd.octaves
+        # Calculate the size based on the specified zoom.
+        config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
+    elif args.command == "expand":
+        # Calculate the factor based on the specified size.
+        factor = (
+            target_img.size[0] / config["size"][0],
+            target_img.size[1] / config["size"][1],
+        )
+        cmd = commands.Expand(target_img, source_img, factor=factor)
+    elif args.command == "remake":
+        cmd = commands.Remake(target_img, source_img, weights=weights)
+        config["octaves"] = 1
+        config["size"] = target_img.size
+    elif args.command == "mashup":
+        cmd = commands.Mashup([source_img, target_img])
+    elif args.command == "repair":
+        cmd = commands.Repair(target_img, source_img)
+        config["octaves"] = 3
+        config["size"] = target_img.size
+    else:
+        raise ValueError()
+
+    if args.output_size is None:
+        args.output_size = source_img.size
+
+    args.output = args.output.replace(
+        "{source}", os.path.splitext(os.path.basename(args.filename))[0]
+    )
+    return cmd, args
+
+
+def main():
+    cmd, args = build_args()
+    result, filenames = api.process_single_command(cmd, args)
+
+    if __name__ == "__main__":
+        main()

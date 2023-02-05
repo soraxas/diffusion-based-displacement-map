@@ -201,16 +201,16 @@ def compare_features_nearby(inputs: FeatureMappingPair, radius: int, split: int 
     ):
         from icecream import ic
 
-        ic(inputs.feat1.shape, inputs.feat2.shape, padding)
         print(
             f"> skipping. padding {padding} >= some shape {inputs.feat1.shape}, {inputs.feat2.shape}"
         )
         return 0
 
-    padded_original = torch.nn.functional.pad(
+    padded_original = F.pad(
         original.to(dtype=torch.float32).expand(4, -1, -1, -1),
         pad=(padding, padding, padding, padding),
-        mode="reflect",
+        mode="circular",
+        # mode="reflect",
     ).long()
 
     total = 0
