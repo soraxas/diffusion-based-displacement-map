@@ -1,0 +1,15 @@
+flask
+pillow
+six
+numpy
+torch
+torchvision
+tqdm
+typed-argument-parser
+matplotlib
+docopt
+schema
+creativeai
+progressbar
+icecream
+flask_socketio

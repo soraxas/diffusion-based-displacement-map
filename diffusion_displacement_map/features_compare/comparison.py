@@ -38,7 +38,7 @@ def compute_similarity(
 
     similarity = cosine_similarity_vector_1d(a.flatten(2), b.flatten(2))
     similarity += (
-        torch_gather_2d(inputs.feat1_repro.biases, b_indices)
+        torch_gather_2d(inputs.feat1_repro.biases.to(similarity.device), b_indices)
         .to(similarity.device)
         .view(similarity.shape[0], -1)
     )

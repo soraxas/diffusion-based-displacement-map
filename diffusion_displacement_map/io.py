@@ -6,6 +6,7 @@ from io import BytesIO
 
 import PIL.Image
 import torch
+import torchvision.transforms
 import torchvision.transforms.functional as V
 
 

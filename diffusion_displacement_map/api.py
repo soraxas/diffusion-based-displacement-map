@@ -1,5 +1,6 @@
 import os
 import math
+import pathlib
 
 import soraxas_toolbox
 import torch
@@ -75,7 +76,7 @@ def process_iterations(
         # result_size = (1,3,160,160)
         seed = cmd.prepare_seed_tensor(app, result_size, previous=seed)
 
-        ic(result_size, seed.shape)
+        # ic(result_size, seed.shape)
 
         for dtype in [
             torch.float32,
@@ -167,6 +168,10 @@ def process_single_command(cmd: Command, args: Args):
             soraxas_toolbox.image.display(
                 image.resize(size=args.output_size, resample=0)
             )
+
+            filename = pathlib.Path(filename)
+            # create any folder that doesn't exist yet
+            filename.parent.mkdir(exist_ok=True, parents=True)
 
             image.resize(size=args.output_size, resample=0).save(
                 filename, lossless=True, compress=6

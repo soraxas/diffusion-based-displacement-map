@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+from PIL import Image
+import numpy as np
+import argparse
+import soraxas_toolbox.image
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("img_path", help="path to the image")
+parser.add_argument(
+    "tile_size", help="create this many tile per dim", type=int, default=2, nargs="?"
+)
+
+args = parser.parse_args()
+
+
+img = Image.open(args.img_path)
+img_data = np.asarray(img)
+if len(img_data.shape) < 3:
+    grey_scale = True
+    img_data = img_data[..., None]
+else:
+    grey_scale = False
+
+
+new_img_data = np.tile(img_data, (args.tile_size, args.tile_size, 1))
+
+
+if grey_scale:
+    new_img_data = new_img_data[..., 0]
+
+
+new_img = Image.fromarray(new_img_data)
+
+
+soraxas_toolbox.image.display(new_img)

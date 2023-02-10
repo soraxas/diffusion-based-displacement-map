@@ -106,95 +106,95 @@ def validate(config):
     return sch.validate({k.replace("--", ""): v for k, v in config.items()})
 
 
-def main():
-    # Parse the command-line options based on the script's documentation.
-    config = docopt.docopt(__doc__, help=False)
-    all_commands = [cmd.lower() for cmd in commands.__all__] + ["--help"]
-    command = [cmd for cmd in all_commands if config[cmd]][0]
-
-    # Ensure the user-specified values are correct, separate command-specific arguments.
-    config = validate(config)
-    sources, target, output, seed = [
-        config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed")
-    ]
-    weights, zoom = [config.pop(k) for k in ("weights", "zoom")]
-
-    # Setup the output logging and display the logo!
-    if config.pop("help") is True:
-        return
-
-    # Scan all the files based on the patterns specified.
-    files = itertools.chain.from_iterable(glob.glob(s) for s in sources)
-    for filename in files:
-        # If there's a random seed, use the same for all images.
-        if seed is not None:
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed(seed)
-
-        # Load the images necessary.
-        img_mode = "RGB"
-        # img_mode = "L"
-        source_img = io.load_image_from_file(filename, mode=img_mode)
-        target_img = io.load_image_from_file(target, mode=img_mode) if target else None
-        factor = 0.3
-        # factor = 1
-        if factor != 1:
-            new_size = tuple(int(s * factor) for s in source_img.size)
-            # new_size = 512,512
-            # ic(source_img.size, new_size)
-
-            source_img = source_img.resize(new_size)
-            soraxas_toolbox.image.display(source_img)
-
-            if target_img:
-                target_img = target_img.resize(new_size)
-                soraxas_toolbox.image.display(target_img)
-
-        # config['size'] = 5120,5120
-
-        # Setup the command specified by user.
-        if command == "remix":
-            cmd = commands.Remix(source_img)
-        if command == "enhance":
-            cmd = commands.Enhance(target_img, source_img, zoom=zoom)
-            config["octaves"] = cmd.octaves
-            # Calculate the size based on the specified zoom.
-            config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
-        if command == "expand":
-            # Calculate the factor based on the specified size.
-            factor = (
-                target_img.size[0] / config["size"][0],
-                target_img.size[1] / config["size"][1],
-            )
-            cmd = commands.Expand(target_img, source_img, factor=factor)
-        if command == "remake":
-            cmd = commands.Remake(target_img, source_img, weights=weights)
-            config["octaves"] = 1
-            config["size"] = target_img.size
-        if command == "mashup":
-            cmd = commands.Mashup([source_img, target_img])
-        if command == "repair":
-            cmd = commands.Repair(target_img, source_img)
-            config["octaves"] = 3
-            config["size"] = target_img.size
-
-        # Process the files one by one, each may have multiple variations.
-        try:
-            config["output"] = output
-            config["output"] = config["output"].replace(
-                "{source}", os.path.splitext(os.path.basename(filename))[0]
-            )
-            if target:
-                config["output"] = config["output"].replace(
-                    "{target}", os.path.splitext(os.path.basename(target))[0]
-                )
-
-            config.pop("quiet"), config.pop("verbose")
-            result, filenames = api.process_single_command(cmd, **config)
-        except KeyboardInterrupt:
-            raise
-            print("\nCTRL+C detected, interrupting...")
-            break
+# def main():
+#     # Parse the command-line options based on the script's documentation.
+#     config = docopt.docopt(__doc__, help=False)
+#     all_commands = [cmd.lower() for cmd in commands.__all__] + ["--help"]
+#     command = [cmd for cmd in all_commands if config[cmd]][0]
+#
+#     # Ensure the user-specified values are correct, separate command-specific arguments.
+#     config = validate(config)
+#     sources, target, output, seed = [
+#         config.pop(k) for k in ("SOURCE", "TARGET", "output", "seed")
+#     ]
+#     weights, zoom = [config.pop(k) for k in ("weights", "zoom")]
+#
+#     # Setup the output logging and display the logo!
+#     if config.pop("help") is True:
+#         return
+#
+#     # Scan all the files based on the patterns specified.
+#     files = itertools.chain.from_iterable(glob.glob(s) for s in sources)
+#     for filename in files:
+#         # If there's a random seed, use the same for all images.
+#         if seed is not None:
+#             torch.manual_seed(seed)
+#             torch.cuda.manual_seed(seed)
+#
+#         # Load the images necessary.
+#         img_mode = "RGB"
+#         img_mode = "L"
+#         source_img = io.load_image_from_file(filename, mode=img_mode)
+#         target_img = io.load_image_from_file(target, mode=img_mode) if target else None
+#         factor = 0.3
+#         # factor = 1
+#         if factor != 1:
+#             new_size = tuple(int(s * factor) for s in source_img.size)
+#             # new_size = 512,512
+#             # ic(source_img.size, new_size)
+#
+#             source_img = source_img.resize(new_size)
+#             soraxas_toolbox.image.display(source_img)
+#
+#             if target_img:
+#                 target_img = target_img.resize(new_size)
+#                 soraxas_toolbox.image.display(target_img)
+#
+#         # config['size'] = 5120,5120
+#
+#         # Setup the command specified by user.
+#         if command == "remix":
+#             cmd = commands.Remix(source_img)
+#         if command == "enhance":
+#             cmd = commands.Enhance(target_img, source_img, zoom=zoom)
+#             config["octaves"] = cmd.octaves
+#             # Calculate the size based on the specified zoom.
+#             config["size"] = (target_img.size[0] * zoom, target_img.size[1] * zoom)
+#         if command == "expand":
+#             # Calculate the factor based on the specified size.
+#             factor = (
+#                 target_img.size[0] / config["size"][0],
+#                 target_img.size[1] / config["size"][1],
+#             )
+#             cmd = commands.Expand(target_img, source_img, factor=factor)
+#         if command == "remake":
+#             cmd = commands.Remake(target_img, source_img, weights=weights)
+#             config["octaves"] = 1
+#             config["size"] = target_img.size
+#         if command == "mashup":
+#             cmd = commands.Mashup([source_img, target_img])
+#         if command == "repair":
+#             cmd = commands.Repair(target_img, source_img)
+#             config["octaves"] = 3
+#             config["size"] = target_img.size
+#
+#         # Process the files one by one, each may have multiple variations.
+#         try:
+#             config["output"] = output
+#             config["output"] = config["output"].replace(
+#                 "{source}", os.path.splitext(os.path.basename(filename))[0]
+#             )
+#             if target:
+#                 config["output"] = config["output"].replace(
+#                     "{target}", os.path.splitext(os.path.basename(target))[0]
+#                 )
+#
+#             config.pop("quiet"), config.pop("verbose")
+#             result, filenames = api.process_single_command(cmd, **config)
+#         except KeyboardInterrupt:
+#             raise
+#             print("\nCTRL+C detected, interrupting...")
+#             break
 
 
 def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command, Args]:
@@ -213,8 +213,16 @@ def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command
         else None
     )
 
+    if args.input_size is not None and args.resize_factor != 1:
+        raise ValueError("--input-size and --resize-factor "
+                         "options are mutually exclusive!")
+
+    new_size = args.input_size
+
     if args.resize_factor != 1:
         new_size = tuple(int(s * args.resize_factor) for s in source_img.size)
+
+    if new_size is not None:
         print(f"> resizing source from {source_img.size} to {new_size}")
 
         source_img = source_img.resize(new_size)

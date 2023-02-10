@@ -70,9 +70,10 @@ class Application:
                 # contains alpha channel
                 if image.shape[1] in (2, 4):
                     alpha = image[:, -1].unsqueeze(-1)
-                image = image[:, 0:3].detach().requires_grad_(True)
 
-                _ori_image = image.detach().clone()
+                image = image[:, 0:3].detach().requires_grad_(True)
+                #
+                # _ori_image = image.detach().clone()
 
                 obj: Critic = objective_class(self.encoder, critics, alpha=alpha)
                 opt: Optimiser = solver_class(obj, image, lr=lr)

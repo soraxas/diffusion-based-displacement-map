@@ -47,7 +47,8 @@ class Args(Tap):
     device = None
     precision = "float32"
 
-    output: str = "{command}_{source}{variation}.png"
+    output: str = "output/{command}_{source}{variation}.png"
+    input_size: TYPE_SIZE
     output_size: TYPE_SIZE
     img_mode: str
     resize_factor: float = 1.0
@@ -56,6 +57,7 @@ class Args(Tap):
 
     def configure(self):
         self.add_argument("-s", "--output_size", default=None, type=size_type)
+        self.add_argument("--input_size", default=None, type=size_type)
         self.add_argument("--img_mode", choices=["RGB", "L"], default="L")
         self.add_argument("-f", "--resize_factor")
         self.add_argument(
