@@ -246,4 +246,8 @@ def disconnect():
 # run with host 0.0.0.0
 # this is needed for exposing port outside docker container
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    import sys
+    kwargs = dict()
+    if len(sys.argv) > 1:
+        kwargs['port'] = int(sys.argv[1])
+    app.run(host="0.0.0.0", debug=True, **kwargs)
