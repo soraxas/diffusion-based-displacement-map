@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+  <h1>Upload your image</h1>
+  <p class="lead"></p>
+  <form
+    id="upload-form"
+    action="{{ url_for('upload') }}"
+    method="POST"
+    enctype="multipart/form-data"
+  >
+    <input
+      id="file-picker"
+      type="file"
+      name="file"
+      accept="image/*"
+      class="hidden"
+      onchange="this.form.submit()"
+    />
+    <label for="file-picker" class="btn btn-lg btn-success">Select file</label>
+  </form>
+</div>
+
+<div class="row marketing">
+  <div class="col-lg-6">
+    <h4><a href="{{ url_for('jobs_list') }}">Jobs</a></h4>
+    <p>View historical <a href="{{ url_for('jobs_list') }}">jobs</a>.</p>
+  </div>
+</div>
+{% endblock %}

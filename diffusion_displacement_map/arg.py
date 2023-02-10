@@ -53,12 +53,20 @@ class Args(Tap):
     img_mode: str
     resize_factor: float = 1.0
 
+    make_tileable: bool = True
+
     should_stop: Callable[[], bool] = lambda *args: False
 
     def configure(self):
         self.add_argument("-s", "--output_size", default=None, type=size_type)
         self.add_argument("--input_size", default=None, type=size_type)
         self.add_argument("--img_mode", choices=["RGB", "L"], default="L")
+        self.add_argument(
+            "--ignore_tileability",
+            action="store_false",
+            dest="make_tileable",
+            default=False,
+        )
         self.add_argument("-f", "--resize_factor")
         self.add_argument(
             "command",

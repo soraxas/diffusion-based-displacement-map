@@ -214,8 +214,9 @@ def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command
     )
 
     if args.input_size is not None and args.resize_factor != 1:
-        raise ValueError("--input-size and --resize-factor "
-                         "options are mutually exclusive!")
+        raise ValueError(
+            "--input-size and --resize-factor " "options are mutually exclusive!"
+        )
 
     new_size = args.input_size
 

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>{% block title %}{% endblock %} - Generative Texture AI</title>
+    <link href="/static/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/jumbotron-narrow.css" rel="stylesheet" />
+    <link href="/static/style.css" rel="stylesheet" />
+    {% block head %}
+    {% endblock %}
+</head>
+
+{% set myList = [('monitor_current_job', 'Job Monitor'), ('job_uploads_list', 'Uploaded Images'), ('jobs_list', 'Historical Jobs'), ('main', 'Home')] %}
+
+<body>
+
+    <div class="container">
+<div class="header">
+        <nav>
+            <ul class="nav nav-pills pull-right">
+        {% for endpoint_data in myList %}
+            <li role="presentation" class="{{ 'active' if request.endpoint == endpoint_data[0] }} btn"><a href="{{ url_for(endpoint_data[0]) }}">{{ endpoint_data[1] }}</a></li>
+        {% endfor %}
+            </ul>
+        </nav>
+        <h3 class="text-muted">{{ self.title() }}</h3>
+        </div>
+
+
+
+
+        <div id="content">{% block content %}{% endblock %}</div>
+
+      {% block footer %}
+        <footer class="footer">
+            <p>&copy; tin.lai@missionsystems.com.au</p>
+        </footer>
+      {% endblock %}
+
+    </div>
+    {% block script %}{% endblock %}
+</body>
+
+</html>

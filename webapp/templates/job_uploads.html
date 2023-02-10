@@ -1,0 +1,58 @@
+
+
+{% extends "base.html" %}
+{% block title %}Job Uploads{% endblock %}
+
+{% block head%}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" crossorigin="anonymous"></script>
+
+    <style>
+.column {
+  float: left;
+  width: 50.0%;
+  padding: 5px;
+}
+
+/* Clear floats after image containers */
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+    </style>
+{% endblock %}
+
+{% block content %}
+      {% for upload in uploads %}
+      <div class="jumbotron">
+        <p class="lead"></p>
+          <br>
+<div class="row">
+    <img src="{{ upload.src }}" alt="source" style="width:70%" />
+    <button class="btn btn-lg btn-success" id="startButton" onclick="startJob('{{ upload.src_name }}');">Start</button>
+</div>
+      </div>
+      {% endfor %}
+{% endblock %}
+
+
+
+
+{% block script %}
+    <script>
+          function startJob(filesrc) {
+              window.location.href = `job/${filesrc}/monitor`;
+              // $.ajax({
+              //     type: "get",
+              //     url: `/job/${filesrc}/start`,
+              //     success: function(result) {
+              //         $('#startButton').attr("disabled", true);
+              //         window.location.href = `job/${filesrc}/monitor`;
+              //     },
+              //     error: function(result) {
+              //     }
+              // });
+          }
+    </script>
+{% endblock %}

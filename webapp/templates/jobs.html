@@ -1,0 +1,44 @@
+
+
+{% extends "base.html" %}
+{% block title %}Historical Jobs{% endblock %}
+
+{% block head%}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" crossorigin="anonymous"></script>
+
+    <style>
+.column {
+  float: left;
+  width: 50.0%;
+  padding: 5px;
+}
+
+/* Clear floats after image containers */
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+    </style>
+{% endblock %}
+
+{% block content %}
+      {% for job in jobs %}
+      <div class="jumbotron">
+        <p class="lead"></p>
+          <b>job id:</b> {{ job.id }}
+          <br>
+<div class="row">
+  <div class="column">
+    <img src="{{ job.src }}" alt="source" style="width:100%" />
+  </div>
+  <div class="column">
+    <img src="{{ job.out }}" alt="output" style="width:100%" />
+  </div>
+</div>
+      </div>
+      {% endfor %}
+{% endblock %}
+
+

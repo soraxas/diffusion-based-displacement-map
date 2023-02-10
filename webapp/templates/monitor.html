@@ -1,0 +1,230 @@
+{% extends "base.html" %} {% block title %}Job Monitor{% endblock %} {% block
+head %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"
+  integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ=="
+  crossorigin="anonymous"
+></script>
+
+<style>
+  .myProgress {
+    width: 100%;
+    background-color: grey;
+  }
+
+  .myBar {
+    width: 0%;
+    height: 30px;
+    background-color: green;
+  }
+
+  #exception-container {
+      border: 3px solid red;
+      box-shadow: 5px 6px darkred;
+    text-align: center;
+
+  }
+
+  .option-container {
+    width: 80%;
+    height: 200px;
+    margin: auto;
+    padding: 10px;
+  }
+
+  .option-left {
+    width: 50%;
+    height: 200px;
+    float: left;
+  }
+
+  .option-right {
+    margin-left: 50%;
+    height: 200px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+  {% if not active %}
+    No active Job running.
+  {% else %}
+    Source
+    <div class="image-container">
+      <img src="/static/job_uploads/{{ filesrc }}" style="width: 100px;" />
+    </div>
+    <br />
+    Output
+    <div class="image-container">
+      <img src="" class="output-img" />
+    </div>
+    <br />
+    Tiling Output
+    <div class="image-container">
+      <img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" /><br/><img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" /><br/><img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" />
+    </div>
+  {% endif %}
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div id="content">
+      {% if active %}
+
+        <div id="content-not-running">
+          <div class="option-container">
+            <form id="startForm" >
+              <div class="option-left">
+                <h4>Tileable?</h4>
+                  <input type="checkbox" name="make-tileable" value="true" checked>
+<!--                <h4>Input size</h4>-->
+<!--                <i>(will be resized to this)</i>-->
+<!--                <br>-->
+<!--                <input type="radio" name="input-size" value="128" checked> 128 x 128 </input><br>-->
+<!--                <input type="radio" name="input-size" value="512" > 512 x 512 </input><br>-->
+<!--                <input type="radio" name="input-size" value="1024" > 1024 x 1024 </input><br>-->
+<!--                <input type="radio" name="input-size" value="2048"> 2048 x 2048 </input><br>-->
+<!--                <input type="radio" name="input-size" value="4096"> 4096 x 4096 </input><br>-->
+              </div>
+              <div class="option-right">
+                <h4>Target size</h4>
+                <i>(will be the output image size)</i>
+                <br>
+                <input type="radio" name="output-size" value="128" checked> 128 x 128 </input><br>
+                <input type="radio" name="output-size" value="512" > 512 x 512 </input><br>
+                <input type="radio" name="output-size" value="1024" > 1024 x 1024 </input><br>
+                <input type="radio" name="output-size" value="2048"> 2048 x 2048 </input><br>
+                <input type="radio" name="output-size" value="4096"> 4096 x 4096 </input><br>
+              </div>
+            </div>
+            <button class="btn btn-lg btn-success" id="startButton" type="submit">Start</button>
+          </form>
+          <br />
+          <br />
+          <h2>Not currently running</h2>
+        </div>
+
+
+
+        <div id="content-running" style="display: none;">
+          <button class="btn btn-lg btn-success" id="stopButton">Stop</button>
+          <br />
+          <br />
+          <b>job id:</b>
+          <div id="job_id"></div>
+          <br />
+          <b>procedure:</b>
+          <div id="procedure-text"></div>
+          <div class="myProgress">
+            <div id="procedure-bar" class="myBar"></div>
+          </div>
+          <br />
+          <b>iteration:</b>
+          <div id="iteration-text"></div>
+          <div class="myProgress">
+            <div id="iteration-bar" class="myBar"></div>
+          </div>
+        </div>
+
+        <div id="exception-container" style="display: none;">
+          <br/>
+          <h2>ERROR:</h2>
+          <div id="exception-details"></div>
+          <br/>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  $(document).ready(function () {
+    function updateInfo (progressInfo) {
+      if (!progressInfo.alive) {
+        $('#startButton').removeAttr('disabled')
+        $('#content-not-running').show()
+        $('#content-running').hide()
+      } else {
+        $('#content-not-running').hide()
+        $('#content-running').show()
+
+        $('.output-img').attr('src', progressInfo.image_data)
+
+        $('#procedure-text').text(
+          `${progressInfo.octave} / ${progressInfo.total_octave}`
+        )
+        $('#procedure-bar').css(
+          'width',
+          `${(progressInfo.octave * 100) / progressInfo.total_octave}%`
+        )
+        $('#iteration-text').text(`${progressInfo.n} / ${progressInfo.total_n}`)
+        $('#iteration-bar').css('width', `${progressInfo.n}%`)
+
+        $('#job_id').text(progressInfo.job_id)
+      }
+    }
+
+    function requestInfo () {
+      $.ajax({
+        type: 'get',
+        url: '/job/query',
+        success: function (result) {
+          updateInfo(result)
+        },
+        error: function (result) {}
+      })
+    }
+
+    $('#startForm').submit(function (e) {
+      e.preventDefault()
+
+      const form = $(this);
+      const actionUrl = form.attr('action');
+
+      $('#exception-container').hide()
+      $.ajax({
+        type: 'post',
+        url: '/job/{{ filesrc }}/start',
+        data: form.serialize(),
+        success: function (result) {
+          $('#startButton').attr('disabled', true)
+          requestInfo()
+        },
+        error: function (result) {}
+      })
+    })
+    $('#stopButton').click(function (e) {
+      e.preventDefault()
+      $.ajax({
+        type: 'get',
+        url: '/job/stop',
+        success: function (result) {
+          requestInfo()
+        },
+        error: function (result) {}
+      })
+    })
+
+    const socket = io.connect()
+
+    //receive details from server
+    socket.on('updateCurrentProgress', function (msg) {
+      updateInfo(msg)
+    })
+
+    //receive details from server
+    socket.on('encounterException', function (msg) {
+      $('#exception-container').show()
+      $('#exception-details').text(msg.error)
+      // alert(msg.error);
+    })
+
+    requestInfo()
+    // setInterval(updateInfo, 1000);
+  })
+</script>
+{% endblock %}

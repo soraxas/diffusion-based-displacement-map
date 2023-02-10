@@ -14,7 +14,7 @@ from .commands import Command
 from .critics import GramMatrixCritic, PatchCritic, HistogramCritic
 from .app import Application, Result
 from .io import *
-from .seamless_modules import WraparoundVGG11
+from . import seamless_modules
 
 
 @torch.no_grad()
@@ -33,15 +33,17 @@ def process_iterations(
     # Setup the application to use throughout the synthesis.
 
     # Encoder used by all the critics at every octave.
-    encoder: Encoder = getattr(models, args.model)(
-        pretrained=True, pool_type=torch.nn.AvgPool2d
-    )
-    encoder: Encoder = WraparoundVGG11(
+    # encoder: Encoder = getattr(models, args.model)(
+    #     pretrained=True, pool_type=torch.nn.AvgPool2d
+    # )
+    # encoder: Encoder = models.VGG11(pretrained=True, pool_type=torch.nn.AvgPool2d)
+    encoder: Encoder = seamless_modules.WraparoundVGG11(
+        block_type=seamless_modules.SeamlessConvBlock
+        if args.make_tileable
+        else seamless_modules.NormalConvBlock,
         pretrained=True,
         # input_type='L'
     )
-
-    # encoder = encoder.to(device=app.device, dtype=app.precision)
 
     app = Application(
         encoder,
@@ -114,7 +116,13 @@ def process_iterations(
                         total_n=app.log.total,
                     )
                     if throttled_display:
-                        soraxas_toolbox.image.display(result.images, pbar=app.log)
+                        # soraxas_toolbox.image.display(result.images, pbar=app.log)
+                        global cur_filename
+                        if cur_filename is not None:
+                            with open(cur_filename, "wb") as f:
+                                torchvision.utils.save_image(
+                                    result.images, f, format="png"
+                                )
 
                     yield result
                 # import time
@@ -133,6 +141,9 @@ def process_iterations(
                 gc.collect
                 torch.cuda.empty_cache()
         torch.cuda.empty_cache()
+
+
+cur_filename = None
 
 
 @torch.no_grad()
@@ -163,6 +174,8 @@ def process_single_command(cmd: Command, args: Args):
                 variation=f"_{i}" if len(images) > 1 else "",
                 command=cmd.__class__.__name__.lower(),
             )
+            global cur_filename
+            cur_filename = filename
 
             soraxas_toolbox.image.display(image)
             soraxas_toolbox.image.display(
@@ -173,9 +186,10 @@ def process_single_command(cmd: Command, args: Args):
             # create any folder that doesn't exist yet
             filename.parent.mkdir(exist_ok=True, parents=True)
 
-            image.resize(size=args.output_size, resample=0).save(
-                filename, lossless=True, compress=6
-            )
+            resize_incomplete_to_output_size = True
+            if resize_incomplete_to_output_size:
+                image = image.resize(size=args.output_size, resample=0)
+            image.save(filename, lossless=True, compress=6)
 
             print("\n=> output:", filename)
             filenames.append(filename)
