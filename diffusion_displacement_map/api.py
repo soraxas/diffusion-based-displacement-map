@@ -104,7 +104,7 @@ def process_iterations(
                     critics,
                     octave,
                     scale,
-                    quality=args.quality,
+                    args=args,
                 ):
                     if args.should_stop():
                         raise StopIteration()

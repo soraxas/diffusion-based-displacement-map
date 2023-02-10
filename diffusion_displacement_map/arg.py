@@ -38,7 +38,9 @@ class Args(Tap):
     4 for 256x256 equivalent pixel count."""
 
     variations: int = 1  # Number of images to generate at same time
-    quality: float = 4  # Quality for optimization, higher is better
+    quality: int = 4  # Quality for optimization, higher is better
+
+    learning_rate = 0.65
 
     model: str = "VGG11"  # Name of the convolution network to use
 

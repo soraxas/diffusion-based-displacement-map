@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import tqdm
 from creativeai.image.encoders.base import Encoder
 
+from .arg import Args
 from .critics import GramMatrixCritic, PatchCritic, Critic
 from .solvers import (
     SolverSGD,
@@ -49,8 +50,8 @@ class Application:
         progress: tqdm.tqdm,
         seed_img: torch.Tensor,
         critics: Iterable[Critic],
-        lr=0.1,
-        quality=1,
+        lr: float,
+        quality: int = 1,
     ):
         for objective_class, solver_class in itertools.product(
             [
@@ -166,7 +167,7 @@ class Application:
 
             previous = min(loss, previous)
 
-    def process_octave(self, result_img, critics, octave, scale, quality):
+    def process_octave(self, result_img, critics, octave, scale, args: Args):
         # Each octave we start a new optimization process.
         result_img = result_img  # .to(dtype=self.precision)
 
@@ -178,8 +179,8 @@ class Application:
                 self.log,
                 result_img,
                 critics=critics,
-                lr=1.0,
-                quality=quality,
+                lr=args.learning_rate,
+                quality=args.quality,
             ),
             start=1,
         ):

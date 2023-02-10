@@ -43,6 +43,20 @@ head %}
     margin-left: 50%;
     height: 200px;
   }
+
+  .tiling-box
+  {
+     width:750px; /* or whatever width you want. */
+     max-width:750px; /* or whatever width you want. */
+     /*display: inline-block;*/
+  }
+
+  .tiling-box-img
+  {
+     width:250px; /* or whatever width you want. */
+     max-width:250px; /* or whatever width you want. */
+     display: inline-block;
+  }
 </style>
 {% endblock %}
 
@@ -62,8 +76,8 @@ head %}
     </div>
     <br />
     Tiling Output
-    <div class="image-container">
-      <img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" /><br/><img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" /><br/><img src="" class="output-img" /><img src="" class="output-img" /><img src="" class="output-img" />
+    <div class="image-container tiling-box">
+      <img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" />
     </div>
   {% endif %}
 </div>
