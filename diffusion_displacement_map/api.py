@@ -127,6 +127,14 @@ def process_iterations(
                     yield result
                 # import time
                 # time.sleep(100)
+
+                args.report(
+                    image=result.images,
+                    octave=octave + 1,
+                    total_octave=len(progressive_scales),
+                    n=app.log.total,
+                    total_n=app.log.total,
+                )
                 seed = result.images
                 del result
                 break

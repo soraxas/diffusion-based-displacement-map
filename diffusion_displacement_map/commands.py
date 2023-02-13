@@ -1,4 +1,5 @@
 import math
+from collections import defaultdict
 from typing import List
 
 import torch
@@ -113,7 +114,79 @@ class Remix(Command):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
+            # return self.source
+            b, c, h, w = size
+            # h = 4000
+            # w = 4000
+            mean = self.source.mean(dim=(2, 3), keepdim=True)  # .to(device=app.device)
 
+            result = torch.empty(
+                (b, c, h, w)
+                # , device=app.device, dtype=torch.float32
+            )
+            # ic(self.source.shape, result.shape)
+            # exit()
+            # result[:, :, :, :] = F.interpolate(self.source, (h, w))
+            # return result
+            return (
+                (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
+                # #.to(dtype=app.precision)
+            )
+
+        return upscale(previous, size=size[2:])
+
+
+class Interpolator(Remix):
+    _default_critics_mode: str = "patch"
+
+    def __init__(self, datum_imgs: List[torch.Tensor], weights: List[float]):
+        self.datum_imgs = [load_tensor_from_image(im) for im in datum_imgs]
+        self.weights = weights
+
+        assert len(self.datum_imgs) == len(self.weights)
+        self.weights = torch.FloatTensor(weights)
+        # normalise
+        self.weights = self.weights / self.weights.sum()
+
+    def prepare_critics(self, app: Application, scale: float):
+        critics = create_default_critics(
+            app.mode or self._default_critics_mode, app.layers
+        )
+        interpolated_imgs = [
+            F.interpolate(
+                img,
+                scale_factor=1.0 / scale,
+                mode="area",
+                recompute_scale_factor=False,
+            )
+            for img in self.datum_imgs
+        ]
+
+        layers = [c.get_layers() for c in critics]
+
+        from .seamless_modules import padding_context_circular
+
+        padding_context_circular.set("reflect")
+        feats = defaultdict(lambda: 0)
+        for datum_img, weight in zip(interpolated_imgs, self.weights):
+            for k, v in dict(
+                app.encoder.extract(
+                    datum_img.to(next(app.encoder.parameters())), layers
+                )
+            ).items():
+                feats[k] += weight * v
+
+        padding_context_circular.set("circular")
+        feats = dict(feats)
+
+        for critic in critics:
+            critic.from_features(feats)
+
+        return [critics]
+
+    def prepare_seed_tensor(self, app, size, previous=None):
+        if previous is None:
+            return torch.normal(mean=0, std=0.1, size=size)
             # return self.source
             b, c, h, w = size
             # h = 4000

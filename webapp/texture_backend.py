@@ -32,6 +32,10 @@ class ExportingThread(threading.Thread):
         input_size,
         output_size,
         make_tileable,
+        gravel,
+        mud,
+        sand,
+        # **kwargs,
     ):
 
         self.job_id = job_id
@@ -53,6 +57,8 @@ class ExportingThread(threading.Thread):
             f"{output_size}x{output_size}",
             "--output",
             f"{JOB_ROOT / job_id / 'out.png'}",
+            "--gravel_mud_sand",
+            f"{gravel},{mud},{sand}",
         ]
         if not make_tileable:
             _args.append("--ignore_tileability")

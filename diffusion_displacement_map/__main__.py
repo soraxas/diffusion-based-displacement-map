@@ -41,6 +41,7 @@ Options:
     -h, --help              Show this message.
 """
 import argparse
+import pathlib
 from typing import Tuple, Type, Optional, List
 
 import soraxas_toolbox.image
@@ -65,8 +66,10 @@ import torch
 
 from . import api, io, commands
 
-
 # from .logger import ansi, ConsoleLog
+
+THIS_DIR = pathlib.Path(__file__).parent.resolve()
+ROOT_DIR = THIS_DIR.parent
 
 
 def validate(config):
@@ -197,6 +200,51 @@ def validate(config):
 #             break
 
 
+class DataSource:
+    def __init__(self, filename, img_mode, target, new_size):
+        # Load the images necessary.
+        source_img = io.load_image_from_file(filename, mode=img_mode)
+        target_img = io.load_image_from_file(target, mode=img_mode) if target else None
+
+        if new_size is not None:
+            print(f"> resizing source from {source_img.size} to {new_size}")
+
+            source_img = source_img.resize(new_size)
+            # soraxas_toolbox.image.display(source_img)
+
+            if target_img:
+                target_img = target_img.resize(new_size)
+                # soraxas_toolbox.image.display(target_img)
+
+        self.source_img = source_img
+        self.target_img = target_img
+
+    @property
+    def output_size(self):
+        if self.target_img is not None:
+            return self.target_img.size
+        return self.source_img.size
+
+
+class DatumDataSource(DataSource):
+    def __init__(self, datum_names, new_size):
+        source_imgs = [
+            io.load_image_from_file(
+                str(ROOT_DIR / "texture_datum" / f"{name}.png"), mode="L"
+            )
+            for name in datum_names
+        ]
+        if new_size is not None:
+            print(f"> resizing source from {source_imgs[0].size} to {new_size}")
+            source_imgs = [img.resize(new_size) for img in source_imgs]
+
+        self.source_imgs = source_imgs
+
+    @property
+    def output_size(self):
+        return self.source_imgs[0].size
+
+
 def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command, Args]:
     args = Args().parse_args(input_args)
 
@@ -205,37 +253,33 @@ def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
 
-    # Load the images necessary.
-    source_img = io.load_image_from_file(args.filename, mode=args.img_mode)
-    target_img = (
-        io.load_image_from_file(args.target, mode=args.img_mode)
-        if args.target
-        else None
-    )
-
     if args.input_size is not None and args.resize_factor != 1:
         raise ValueError(
             "--input-size and --resize-factor " "options are mutually exclusive!"
         )
+    else:
+        new_size = args.input_size
+        if args.resize_factor != 1:
+            new_size = tuple(
+                int(s * args.resize_factor)
+                for s in io.load_image_from_file(args.filename).size
+            )
 
-    new_size = args.input_size
+    if args.gravel_mud_sand is None:
+        data_source = DataSource(args.filename, args.img_mode, args.target, new_size)
+    else:
+        data_source = DatumDataSource(["Gravel", "Mud", "Sand"], new_size)
 
-    if args.resize_factor != 1:
-        new_size = tuple(int(s * args.resize_factor) for s in source_img.size)
-
-    if new_size is not None:
-        print(f"> resizing source from {source_img.size} to {new_size}")
-
-        source_img = source_img.resize(new_size)
-        soraxas_toolbox.image.display(source_img)
-
-        if target_img:
-            target_img = target_img.resize(new_size)
-            soraxas_toolbox.image.display(target_img)
+    # SKIP if we are using datum files
+    # FIXME this is dirty
 
     # Setup the command specified by user.
     if args.command == "remix":
-        cmd = commands.Remix(source_img)
+        if args.gravel_mud_sand is not None:
+            weights = list(map(float, args.gravel_mud_sand.split(",")))
+            cmd = commands.Interpolator(data_source.source_imgs, weights=weights)
+        else:
+            cmd = commands.Remix(data_source.source_img)
     elif args.command == "enhance":
         cmd = commands.Enhance(target_img, source_img, zoom=zoom)
         config["octaves"] = cmd.octaves
@@ -262,7 +306,7 @@ def build_args(input_args: Optional[List[str]] = None) -> Tuple[commands.Command
         raise ValueError()
 
     if args.output_size is None:
-        args.output_size = source_img.size
+        args.output_size = data_source.output_size
 
     args.output = args.output.replace(
         "{source}", os.path.splitext(os.path.basename(args.filename))[0]

@@ -160,6 +160,10 @@ def start_process(job_upload_path):
     make_tileable = False
     if "make-tileable" in request.form:
         make_tileable = bool(request.form["make-tileable"])
+
+    for key in ["gravel", "mud", "sand"]:
+        kwargs[key] = float(request.form[key])
+
     # _out_size = (request.form[])
     _out_size = int(request.form["output-size"])
     job_id = backend_bridge.start(
@@ -167,6 +171,7 @@ def start_process(job_upload_path):
         input_size=_out_size,
         output_size=_out_size,
         make_tileable=make_tileable,
+        **kwargs,
     )
     if job_id:
         return dict(status=True, job_id=job_id)

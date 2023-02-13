@@ -59,6 +59,9 @@ class Args(Tap):
 
     should_stop: Callable[[], bool] = lambda *args: False
 
+    # preset texture
+    gravel_mud_sand: str = None
+
     def configure(self):
         self.add_argument("-s", "--output_size", default=None, type=size_type)
         self.add_argument("--input_size", default=None, type=size_type)

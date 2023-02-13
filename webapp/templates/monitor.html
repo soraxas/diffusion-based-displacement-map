@@ -6,6 +6,7 @@ head %}
   integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ=="
   crossorigin="anonymous"
 ></script>
+<script src="/static/latent-space-picker.js"></script>
 
 <style>
   .myProgress {
@@ -58,35 +59,93 @@ head %}
      /*max-width:250px; !* or whatever width you want. *!*/
      display: inline-block;
   }
+
+.triangle-picker-wrapper {
+    position: relative !important;
+}
+
+.triangle-picker-wrapper .triangle-picker {
+    width: 100%;
+    position: relative !important;
+    margin: 0;
+}
+
+.triangle-picker-wrapper .triangle-picker .triangle-picker-handle {
+    position: absolute !important;
+    width: 1.5vw;
+    height: 1.5vw;
+    background-color: black;
+    border-radius: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.triangle-picker-wrapper .triangle-picker-top-label-wrapper,
+.triangle-picker-wrapper .triangle-picker-bottom-label-wrapper {
+    width: 100%;
+    text-align: center;
+    position: relative;
+}
+
+.triangle-picker-wrapper .triangle-picker-bottom-label-wrapper .bottomLeft {
+    position: absolute;
+    left: 0;
+}
+
+.triangle-picker-wrapper .triangle-picker-bottom-label-wrapper .bottomRight {
+    position: absolute;
+    right: 0;
+}
+
+.flex-container {
+  display: flex;
+}
+
+.flex-item {
+  /*background: tomato;*/
+  /*padding: 5px;*/
+  /*width: 50px;*/
+  /*margin: 5px;*/
+
+  /*line-height: 50px;*/
+  /*color: white;*/
+  /*font-weight: bold;*/
+  /*font-size: 2em;*/
+  /*text-align: center;*/
+}
+
+
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="jumbotron">
-  {% if not active %}
-    No active Job running.
-  {% else %}
-    Source
-    <div class="image-container">
-      <img src="/static/job_uploads/{{ filesrc }}" style="width: 100px;" />
+
+<!--    Source-->
+<!--    <div class="image-container">-->
+<!--      <img src="/static/job_uploads/{{ filesrc }}" style="width: 100px;" />-->
+<!--    </div>-->
+<!--    <br />-->
+    <div class="flex-container">
+        <div class="flex-item" style="width: 25%">
+            Output
+            <div class="image-container">
+              <img src="" style="max-width: 100%" class="output-img" />
+            </div>
+        </div>
+        <div class="flex-item" style="width: 75%">
+            Tiling Output
+            <div class="image-container tiling-box">
+              <img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" />
+            </div>
+        </div>
     </div>
-    <br />
-    Output
-    <div class="image-container">
-      <img src="" class="output-img" />
-    </div>
-    <br />
-    Tiling Output
-    <div class="image-container tiling-box">
-      <img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><br/><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" /><img src="" class="tiling-box-img output-img" />
-    </div>
-  {% endif %}
+
 </div>
 
 <div class="row">
   <div class="col-lg-6">
     <div id="content">
-      {% if active %}
 
         <div id="content-not-running">
           <div class="option-container">
@@ -113,7 +172,17 @@ head %}
                 <input type="radio" name="output-size" value="2048"> 2048 x 2048 </input><br>
                 <input type="radio" name="output-size" value="4096"> 4096 x 4096 </input><br>
               </div>
-            </div>
+
+
+          </div>
+              <div style="padding: 1cm; max-width: 50%;">
+                  <div id="latent-space-picker"></div>
+                    <input style="display: none" type="number" name="gravel" id="gravel-val" value="50" step="any">
+                    <input style="display: none" type="number" name="mud" id="mud-val" value="50" step="any">
+                    <input style="display: none" type="number" name="sand" id="sand-val" value="50" step="any">
+                  <div id="latent-space-picker"></div>
+              </div>
+
             <button class="btn btn-lg btn-success" id="startButton" type="submit">Start</button>
           </form>
           <br />
@@ -150,7 +219,7 @@ head %}
           <br/>
         </div>
       </div>
-    {% endif %}
+
   </div>
 </div>
 {% endblock %}
@@ -158,6 +227,53 @@ head %}
 {% block script %}
 <script>
   $(document).ready(function () {
+      function initialise_latent_picker () {
+          var options = {
+              polygon: {
+                  width: null,
+                  fillColor: "grey",
+                  line: {
+                      width: 2,
+                      color: 'black',
+                      centerLines: true,
+                      centerLineWidth: null
+                  }
+              },
+              handle: {
+                  color: 'red',
+                  width: 20,
+                  height: null,
+                  borderRadius: 3
+              },
+              inputs: {
+                  bottomRight: {
+                      name: 'Sand',
+                      id: '',
+                      class: ''
+                  },
+                  topMiddle: {
+                      name: 'Gravel',
+                      id: '',
+                      class: ''
+                  },
+                  bottomLeft: {
+                      name: 'Mud',
+                      id: '',
+                      class: ''
+                  },
+                  decimalPlaces: 2
+              }
+          }
+          $('#latent-space-picker').trianglePicker(options, function (name, values) {
+              // $('#log').text(`Gravel: ${values.Gravel}, Sand: ${values.Sand} Mud: ${values.Mud}`);
+              $('#mud-val').val(values.Mud)
+              $('#gravel-val').val(values.Gravel)
+              $('#sand-val').val(values.Sand)
+          });
+      }
+      initialise_latent_picker();
+
+
     function updateInfo (progressInfo) {
       if (!progressInfo.alive) {
         $('#startButton').removeAttr('disabled')
@@ -181,6 +297,9 @@ head %}
 
         $('#job_id').text(progressInfo.job_id)
       }
+
+      // reset triangle picker (otherwise it starts to misalign)
+        initialise_latent_picker();
     }
 
     function requestInfo () {
