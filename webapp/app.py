@@ -18,6 +18,7 @@ image_processing_width = 560
 # default access page
 @app.route("/")
 def main():
+    return monitor_current_job()
     return render_template("index.html")
 
 

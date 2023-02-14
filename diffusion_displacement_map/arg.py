@@ -40,7 +40,7 @@ class Args(Tap):
     variations: int = 1  # Number of images to generate at same time
     quality: int = 4  # Quality for optimization, higher is better
 
-    learning_rate = 0.65
+    learning_rate = 0.5
 
     model: str = "VGG11"  # Name of the convolution network to use
 

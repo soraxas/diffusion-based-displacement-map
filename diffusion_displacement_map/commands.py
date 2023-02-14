@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from functools import reduce
 from typing import List
 
 import torch
@@ -186,25 +187,17 @@ class Interpolator(Remix):
 
     def prepare_seed_tensor(self, app, size, previous=None):
         if previous is None:
-            return torch.normal(mean=0, std=0.1, size=size)
-            # return self.source
             b, c, h, w = size
-            # h = 4000
-            # w = 4000
-            mean = self.source.mean(dim=(2, 3), keepdim=True)  # .to(device=app.device)
 
+            mean_of_datums = reduce(lambda a, b: a + b, self.datum_imgs) / len(
+                self.datum_imgs
+            )
+            mean = mean_of_datums.mean(dim=(2, 3), keepdim=True)
             result = torch.empty(
                 (b, c, h, w)
                 # , device=app.device, dtype=torch.float32
             )
-            # ic(self.source.shape, result.shape)
-            # exit()
-            # result[:, :, :, :] = F.interpolate(self.source, (h, w))
-            # return result
-            return (
-                (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
-                # #.to(dtype=app.precision)
-            )
+            return (result.normal_(std=0.1) + mean).clamp(0.0, 1.0)
 
         return upscale(previous, size=size[2:])
 
