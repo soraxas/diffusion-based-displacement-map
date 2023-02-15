@@ -285,9 +285,9 @@ head %}
 
        })
     }
-    const first_output_img = $('.output-img')[0];
-    first_output_img.onload = function() {
-        $('#output-img-dim').text(`${first_output_img.naturalWidth} x ${first_output_img.naturalHeight}`)
+    const output_imgs = $('.output-img');
+    output_imgs[0].onload = function() {
+        $('#output-img-dim').text(`${output_imgs[0].naturalWidth} x ${output_imgs[0].naturalHeight}`)
     }
 
     function updateInfo (progressInfo) {
@@ -299,7 +299,7 @@ head %}
         $('#content-not-running').hide()
         $('#content-running').show()
 
-        $('.output-img').attr('src', progressInfo.image_data);
+        output_imgs.attr('src', progressInfo.image_data);
 
         $('#procedure-text').text(
           `${progressInfo.octave} / ${progressInfo.total_octave}`
