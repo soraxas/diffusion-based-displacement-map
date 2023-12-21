@@ -189,7 +189,6 @@ class MultiCriticObjective(Objective):
 
         # with torch.autocast('cuda'):
         if 1:
-
             # Extract features from image.
             layers = [c.get_layers() for c in self.critics]
             feats = dict(self.encoder.extract(image, layers))
@@ -223,7 +222,6 @@ class SequentialCriticObjective(Objective):
         # Apply all the critics one by one, keep track of results.
         scores = []
         for critic in self.critics:
-
             # Extract minimal necessary features from image.
             origin_feats = dict(
                 self.encoder.extract(image, critic.get_layers(), as_checkpoints=True)

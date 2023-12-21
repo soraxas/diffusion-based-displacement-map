@@ -87,7 +87,7 @@ def compare_features_coarse(
         return 0
 
     total = 0
-    for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+    for t1, t2 in iterate_range(inputs.feat1.shape[2], split):
         assert t2 >= t1
 
         factor = inputs.feat1_repro.indices.shape[2] / parent_a.indices.shape[2]
@@ -115,7 +115,7 @@ def compare_features_identity(
 ):
     # from icecream import ic
     # ic(inputs.feat1.shape, inputs.feat2.shape)
-    for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+    for t1, t2 in iterate_range(inputs.feat1.shape[2], split):
         # ic(t1, t2)
         assert t2 >= t1
 
@@ -139,7 +139,7 @@ def compare_features_inverse(
     split: int,
 ):
     total = 0
-    for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+    for t1, t2 in iterate_range(inputs.feat1.shape[2], split):
         assert t2 >= t1
 
         indices = inputs.feat1_repro.indices[:, :, t1:t2]
@@ -159,7 +159,7 @@ def compare_features_random(
     """
 
     total = 0
-    for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+    for t1, t2 in iterate_range(inputs.feat1.shape[2], split):
         assert t2 >= t1
 
         if radius == -1:
@@ -214,7 +214,7 @@ def compare_features_nearby(inputs: FeatureMappingPair, radius: int, split: int 
     ).long()
 
     total = 0
-    for (t1, t2) in iterate_range(inputs.feat1.shape[2], split):
+    for t1, t2 in iterate_range(inputs.feat1.shape[2], split):
         h, w = (t2 - t1), inputs.feat1.shape[3]
 
         x = original.new_tensor([0, 0, -radius, +radius]).view(4, 1, 1)

@@ -59,7 +59,6 @@ def process_iterations(
     progressive_scales = [2**s for s in range(octaves - 1, -1, -1)]
     ic(progressive_scales)
     for octave, scale in enumerate(progressive_scales):
-
         app.create_pbar(f"OCTAVE {octave + 1}/{len(progressive_scales)}")
 
         # app.log.debug("<- scale:", f"1/{scale}")

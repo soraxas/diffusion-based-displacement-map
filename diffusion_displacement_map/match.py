@@ -337,7 +337,6 @@ class FeatureMatcher:
         )
 
     def compare_features_coarse(self, parent, radius=2, split=1):
-
         if parent is None:
             return 0
 
@@ -424,7 +423,6 @@ class FeatureMatcher:
         return ts + st
 
     def compare_features_nearby(self, radius: int, split: int = 1):
-
         ts = compare_features_nearby(
             self.target_and_source_pair,
             radius=radius,

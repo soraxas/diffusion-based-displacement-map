@@ -37,7 +37,6 @@ class ExportingThread(threading.Thread):
         sand,
         # **kwargs,
     ):
-
         self.job_id = job_id
 
         self.job_dir = JOB_ROOT / job_id

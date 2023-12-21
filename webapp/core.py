@@ -20,7 +20,6 @@ def main():
 # rotate filename the specified degrees
 @app.route("/rotate/<angle>/<filename>", methods=["GET"])
 def rotate(angle, filename):
-
     # check for valid angle
     angle = int(angle)
     if not -360 < angle < 360:
@@ -50,7 +49,6 @@ def rotate(angle, filename):
 # flip filename 'vertical' or 'horizontal'
 @app.route("/flip/<mode>/<filename>", methods=["GET"])
 def flip(mode, filename):
-
     # open and process image
     target = os.path.join(APP_ROOT, "static/images")
     destination = "/".join([target, filename])
@@ -82,7 +80,6 @@ def flip(mode, filename):
 # crop filename from (x1,y1) to (x2,y2)
 @app.route("/crop/<x1>/<y1>/<x2>/<y2>/<filename>", methods=["GET"])
 def crop(x1, y1, x2, y2, filename):
-
     # open image
     target = os.path.join(APP_ROOT, "static/images")
     destination = "/".join([target, filename])
@@ -135,7 +132,6 @@ def crop(x1, y1, x2, y2, filename):
 # blend filename1 and filename2 with alpha parameter
 @app.route("/blend/<alpha>/<filename1>/<filename2>", methods=["GET"])
 def blend(alpha, filename1, filename2):
-
     # check for valid alpha
     alpha = float(alpha)
     if not 0 <= alpha <= 100:

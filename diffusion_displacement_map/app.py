@@ -82,7 +82,6 @@ class Application:
                 for i, loss, converge, lr, retries, scores in self._iterate(
                     opt, quality=quality
                 ):
-
                     # # only update the requested region, if we are re-painting part of the image.
                     # _x = int(0.25 * image.shape[2])
                     # _y = int(0.25 * image.shape[3])

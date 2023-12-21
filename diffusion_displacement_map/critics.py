@@ -171,7 +171,6 @@ class PatchCritic(Critic):
 
         for i in self.split_hints.get(key, range(16)):
             try:
-
                 # number of split must be < min dimension
                 num_splits = min(2**i, min_dimension - 1)
 
@@ -201,7 +200,6 @@ class PatchCritic(Critic):
         assert False, f"Unable to fit {function} execution into CUDA memory."
 
     def evaluate(self, features):
-
         # import icecream
         ic.disable()
 
